@@ -11,36 +11,36 @@ import UIKit
 
 
 class DispatchClassA: Dispatchable {
-    var queue: dispatch_queue_t? = nil
+    var queue: DispatchQueue? = nil
 
-    internal func closure(group: dispatch_group_t) {
+    internal func closure(_ group: DispatchGroup) {
         print("Sync A (no thread)")
     }
 }
 
 
 class DispatchClassB: Dispatchable {
-    var queue: dispatch_queue_t? = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
+    var queue: DispatchQueue? = DispatchQueue.global(priority: DispatchQueue.GlobalQueuePriority.default)
 
-    internal func closure(group: dispatch_group_t) {
-        dispatch_group_enter(group)
+    internal func closure(_ group: DispatchGroup) {
+        group.enter()
 
         // Background Queue
-        dispatch_group_async(group, queue!) {
+        queue!.async(group: group) {
             print("Async B (background thread)")
-            dispatch_group_leave(group)
+            group.leave()
         }
     }
 }
 
 class DispatchClassC: Dispatchable {
-    var queue: dispatch_queue_t? = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
-    var group2 = dispatch_group_create()
-    internal func closure(group: dispatch_group_t) {
-        dispatch_group_async(group, self.queue!) {
+    var queue: DispatchQueue? = DispatchQueue.global(priority: DispatchQueue.GlobalQueuePriority.default)
+    var group2 = DispatchGroup()
+    internal func closure(_ group: DispatchGroup) {
+        self.queue!.async(group: group) {
             print("Async C (background thread)")
 
-            dispatch_group_async(group, dispatch_get_main_queue(), {
+            DispatchQueue.main.async(group: group, execute: {
                 print("Async C (main thread)")
             })
 
@@ -50,21 +50,21 @@ class DispatchClassC: Dispatchable {
 }
 
 protocol DispatchableGroup {
-    var group: dispatch_group_t {get}
+    var group: DispatchGroup {get}
     var dispatchables: [Dispatchable] {get set}
 }
 
 extension DispatchableGroup {
-    mutating func addDispatchable(dispatchable: Dispatchable) {
+    mutating func addDispatchable(_ dispatchable: Dispatchable) {
         dispatchables.append(dispatchable)
     }
 
-    func execute(completion:() -> ()) {
+    func execute(_ completion:@escaping () -> ()) {
         print("start....")
         dispatchables.forEach { $0.closure(group) }
 
 //        dispatch_group_wait(group, DISPATCH_TIME_FOREVER)
-        dispatch_group_notify(group, dispatch_get_main_queue()) {
+        group.notify(queue: DispatchQueue.main) {
             print("end...")
             completion()
         }
@@ -72,12 +72,12 @@ extension DispatchableGroup {
 }
 
 protocol Dispatchable {
-    var queue: dispatch_queue_t? {get}
-    func closure(group: dispatch_group_t)
+    var queue: DispatchQueue? {get}
+    func closure(_ group: DispatchGroup)
 }
 
 class DGroup: DispatchableGroup {
-    var group: dispatch_group_t = dispatch_group_create()
+    var group: DispatchGroup = DispatchGroup()
     var dispatchables: [Dispatchable] = []
 }
 
